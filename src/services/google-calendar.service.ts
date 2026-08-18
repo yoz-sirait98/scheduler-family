@@ -1,3 +1,4 @@
+import { db } from '@/db/database';
 import { taskRepository } from '@/db/task.repository';
 import type { Task, TaskCreateInput } from '@/types/task';
 import type {
@@ -343,6 +344,7 @@ export class GoogleCalendarService {
 
     const params = new URLSearchParams({
       singleEvents: 'true',
+      showDeleted: 'true',
       orderBy: 'startTime',
       maxResults: '250',
     });
@@ -782,12 +784,16 @@ export class GoogleCalendarService {
         }
       }
 
+      const activeRemoteEventIds = new Set<string>();
+      const cancelledRemoteEventIds = new Set<string>();
+
       // ----------------------------------------------------------------------
       // PHASE A: PULL (Google Calendar -> Local Dexie)
       // ----------------------------------------------------------------------
       for (const event of remoteEvents) {
         if (event.status === 'cancelled') {
-          // Event was cancelled in Google Calendar -> soft delete local task
+          cancelledRemoteEventIds.add(event.id);
+          // Event was cancelled in Google Calendar -> delete local task
           const existing = localByEventId.get(event.id);
           if (existing && !existing.is_deleted) {
             await taskRepository.delete(existing.id);
@@ -796,6 +802,7 @@ export class GoogleCalendarService {
           continue;
         }
 
+        activeRemoteEventIds.add(event.id);
         const existingLocal = localByEventId.get(event.id);
 
         if (!existingLocal) {
@@ -848,10 +855,61 @@ export class GoogleCalendarService {
         }
       }
 
+      // Check if any previously synced Google task in this calendar is now deleted/missing in Google Calendar
+      for (const localTask of localTasks) {
+        if (
+          !localTask.is_deleted &&
+          localTask.external_provider === 'google' &&
+          localTask.external_event_id &&
+          (!localTask.external_calendar_id || localTask.external_calendar_id === calendarId)
+        ) {
+          if (
+            cancelledRemoteEventIds.has(localTask.external_event_id) ||
+            !activeRemoteEventIds.has(localTask.external_event_id)
+          ) {
+            await taskRepository.delete(localTask.id);
+            stats.tasksDeleted++;
+          }
+        }
+      }
+
       // ----------------------------------------------------------------------
       // PHASE B: PUSH (Local Dexie -> Google Calendar)
       // ----------------------------------------------------------------------
-      // Re-read local tasks after pull
+      // 1. Push soft-deleted local tasks that still have an active Google event ID
+      if (typeof indexedDB !== 'undefined') {
+        try {
+          const allTasksInRange = await db.tasks
+            .where('task_date')
+            .between(localMinDate, localMaxDate, true, true)
+            .toArray();
+
+          for (const t of allTasksInRange) {
+            if (
+              t.is_deleted &&
+              t.external_provider === 'google' &&
+              t.external_event_id &&
+              (!t.external_calendar_id || t.external_calendar_id === calendarId) &&
+              (!activeUserId || !t.user_id || t.user_id === activeUserId || t.user_id === 'local-user')
+            ) {
+              try {
+                await this.deleteEvent(account.accessToken, calendarId, t.external_event_id);
+                await db.tasks.update(t.id, {
+                  external_event_id: null,
+                  external_synced_at: new Date().toISOString(),
+                });
+                stats.tasksDeleted++;
+              } catch (err: any) {
+                console.warn(`Failed to delete remote Google event for task ${t.id}:`, err);
+              }
+            }
+          }
+        } catch {
+          // Continue if Dexie store is not open in test runner
+        }
+      }
+
+      // 2. Re-read active local tasks after pull
       const updatedLocalTasks = await taskRepository.getByDateRange(localMinDate, localMaxDate, activeUserId);
 
       for (const localTask of updatedLocalTasks) {
@@ -904,7 +962,11 @@ export class GoogleCalendarService {
       }
 
       stats.totalSynced =
-        stats.eventsImported + stats.eventsUpdated + stats.tasksExported + stats.tasksUpdated;
+        stats.eventsImported +
+        stats.eventsUpdated +
+        stats.tasksExported +
+        stats.tasksUpdated +
+        stats.tasksDeleted;
 
       this.saveLastSyncStats(stats);
       return stats;

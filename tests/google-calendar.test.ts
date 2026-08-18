@@ -254,5 +254,55 @@ describe('Google Calendar Integration (Phase 2)', () => {
       expect(updatedLocalTask?.external_event_id).not.toBeNull();
       expect(updatedLocalTask?.external_provider).toBe('google');
     });
+
+    it('soft deletes local task when remote event is cancelled or deleted on Google Calendar', async () => {
+      googleCalendarService.enableMockAccount();
+
+      const memoryTasks: Task[] = [
+        {
+          id: 'task_to_be_deleted',
+          user_id: 'test-user-sync',
+          title: 'Cancelled Doctor Visit',
+          task_date: '2026-08-22',
+          start_time: '14:00',
+          end_time: '15:00',
+          is_all_day: false,
+          priority: 'high',
+          status: 'pending',
+          is_deleted: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          external_event_id: 'google_event_that_got_deleted_or_cancelled',
+          external_provider: 'google',
+          external_calendar_id: 'primary',
+        },
+      ];
+
+      vi.spyOn(taskRepository, 'getByDateRange').mockImplementation(async () => {
+        return memoryTasks.filter((t) => !t.is_deleted);
+      });
+
+      vi.spyOn(taskRepository, 'delete').mockImplementation(async (id) => {
+        const t = memoryTasks.find((item) => item.id === id);
+        if (t) t.is_deleted = true;
+      });
+
+      // Mock fetchEvents to return empty or active events that don't include 'google_event_that_got_deleted_or_cancelled'
+      vi.spyOn(googleCalendarService, 'fetchEvents').mockResolvedValue([
+        {
+          id: 'another_active_event',
+          summary: 'Other Active Event',
+          status: 'confirmed',
+          start: { dateTime: '2026-08-22T10:00:00+07:00' },
+          end: { dateTime: '2026-08-22T11:00:00+07:00' },
+        },
+      ]);
+
+      const stats = await googleCalendarService.syncWithGoogle({}, 'test-user-sync');
+
+      expect(stats.tasksDeleted).toBeGreaterThanOrEqual(1);
+      const deletedTask = memoryTasks.find((t) => t.id === 'task_to_be_deleted');
+      expect(deletedTask?.is_deleted).toBe(true);
+    });
   });
 });
