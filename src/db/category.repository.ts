@@ -4,14 +4,22 @@ import { DEFAULT_FAMILY_CATEGORIES } from '@/types/category';
 
 export class CategoryRepository {
   /**
-   * Initializes default categories if database is empty
+   * Initializes default categories if database is empty or migrates old non-UUID IDs
    */
   async ensureDefaults(userId?: string): Promise<Category[]> {
     const existing = await db.categories.toArray();
-    if (existing.length === 0) {
+
+    // Clean up any legacy default-cat-X non-UUID ids if present
+    const legacyItems = existing.filter((c) => c.id.startsWith('default-cat'));
+    if (legacyItems.length > 0) {
+      await db.categories.bulkDelete(legacyItems.map((c) => c.id));
+    }
+
+    const current = await db.categories.toArray();
+    if (current.length === 0) {
       const now = new Date().toISOString();
-      const defaultCats: Category[] = DEFAULT_FAMILY_CATEGORIES.map((cat, idx) => ({
-        id: `default-cat-${idx + 1}`,
+      const defaultCats: Category[] = DEFAULT_FAMILY_CATEGORIES.map((cat) => ({
+        id: crypto.randomUUID(), // Always a valid UUID
         user_id: userId || 'local-user',
         name: cat.name,
         icon: cat.icon,
@@ -24,13 +32,14 @@ export class CategoryRepository {
       await db.categories.bulkAdd(defaultCats);
       return defaultCats;
     }
-    return existing;
+    return current;
   }
 
   async getAll(userId?: string): Promise<Category[]> {
     await this.ensureDefaults(userId);
-    if (userId) {
-      return db.categories.where('user_id').equals(userId).toArray();
+    if (userId && userId !== 'guest-family-user' && userId !== 'local-user') {
+      const userCats = await db.categories.filter((c) => !c.user_id || c.user_id === userId || c.user_id === 'local-user').toArray();
+      return userCats;
     }
     return db.categories.toArray();
   }
@@ -44,7 +53,7 @@ export class CategoryRepository {
     const newCategory: Category = {
       id: crypto.randomUUID(),
       user_id: userId || 'local-user',
-      name: input.name,
+      name: input.name.trim(),
       icon: input.icon || 'Folder',
       color: input.color || '#6366f1',
       is_default: false,

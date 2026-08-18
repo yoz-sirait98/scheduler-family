@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { taskRepository } from '@/db/task.repository';
 import { syncService } from '@/services/sync.service';
+import { supabase, isSupabaseConfigured } from '@/services/supabase.service';
 import { useAuthStore } from './auth.store';
 import { getTodayDateString, getCurrentTimeString, isTaskOverdue } from '@/utils/date';
 import type { Task, TaskCreateInput, TaskUpdateInput, TaskFilterType, TaskSortOption } from '@/types/task';
@@ -110,11 +111,42 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   async function addTask(input: TaskCreateInput): Promise<Task> {
-    const task = await taskRepository.create(input, authStore.currentUserId);
+    const activeUserId = authStore.user?.id || authStore.currentUserId;
+    const task = await taskRepository.create(input, activeUserId);
     tasks.value.push(task);
 
-    // Sync enqueue
-    await syncService.enqueue('tasks', 'create', task.id, task);
+    // Direct Supabase upsert if authenticated and online
+    if (authStore.user?.id && isSupabaseConfigured && supabase && navigator.onLine) {
+      try {
+        const payload = {
+          id: task.id,
+          user_id: authStore.user.id,
+          category_id: task.category_id || null,
+          title: task.title,
+          description: task.description || null,
+          task_date: task.task_date,
+          start_time: task.start_time || null,
+          end_time: task.end_time || null,
+          is_all_day: task.is_all_day,
+          priority: task.priority,
+          status: task.status,
+          is_deleted: false,
+          created_at: task.created_at,
+          updated_at: task.updated_at,
+        };
+        const { error } = await supabase.from('tasks').upsert(payload);
+        if (error) {
+          console.warn('Direct task upsert failed, enqueued for background sync:', error);
+          await syncService.enqueue('tasks', 'create', task.id, task);
+        }
+      } catch {
+        await syncService.enqueue('tasks', 'create', task.id, task);
+      }
+    } else {
+      // Sync enqueue
+      await syncService.enqueue('tasks', 'create', task.id, task);
+    }
+
     return task;
   }
 
@@ -125,7 +157,36 @@ export const useTaskStore = defineStore('tasks', () => {
       if (idx !== -1) {
         tasks.value[idx] = updated;
       }
-      await syncService.enqueue('tasks', 'update', id, updated);
+
+      if (authStore.user?.id && isSupabaseConfigured && supabase && navigator.onLine) {
+        try {
+          const payload = {
+            id: updated.id,
+            user_id: authStore.user.id,
+            category_id: updated.category_id || null,
+            title: updated.title,
+            description: updated.description || null,
+            task_date: updated.task_date,
+            start_time: updated.start_time || null,
+            end_time: updated.end_time || null,
+            is_all_day: updated.is_all_day,
+            priority: updated.priority,
+            status: updated.status,
+            is_deleted: updated.is_deleted ?? false,
+            created_at: updated.created_at,
+            updated_at: updated.updated_at,
+            completed_at: updated.completed_at || null,
+          };
+          const { error } = await supabase.from('tasks').upsert(payload);
+          if (error) {
+            await syncService.enqueue('tasks', 'update', id, updated);
+          }
+        } catch {
+          await syncService.enqueue('tasks', 'update', id, updated);
+        }
+      } else {
+        await syncService.enqueue('tasks', 'update', id, updated);
+      }
     }
   }
 
@@ -136,14 +197,43 @@ export const useTaskStore = defineStore('tasks', () => {
       if (idx !== -1) {
         tasks.value[idx] = updated;
       }
-      await syncService.enqueue('tasks', 'update', id, updated);
+
+      if (authStore.user?.id && isSupabaseConfigured && supabase && navigator.onLine) {
+        try {
+          const { error } = await supabase.from('tasks').update({
+            status: updated.status,
+            completed_at: updated.completed_at || null,
+            updated_at: updated.updated_at,
+          }).eq('id', id);
+
+          if (error) {
+            await syncService.enqueue('tasks', 'update', id, updated);
+          }
+        } catch {
+          await syncService.enqueue('tasks', 'update', id, updated);
+        }
+      } else {
+        await syncService.enqueue('tasks', 'update', id, updated);
+      }
     }
   }
 
   async function deleteTask(id: string): Promise<void> {
     await taskRepository.delete(id);
     tasks.value = tasks.value.filter((t) => t.id !== id);
-    await syncService.enqueue('tasks', 'delete', id, {});
+
+    if (authStore.user?.id && isSupabaseConfigured && supabase && navigator.onLine) {
+      try {
+        const { error } = await supabase.from('tasks').delete().eq('id', id);
+        if (error) {
+          await syncService.enqueue('tasks', 'delete', id, {});
+        }
+      } catch {
+        await syncService.enqueue('tasks', 'delete', id, {});
+      }
+    } else {
+      await syncService.enqueue('tasks', 'delete', id, {});
+    }
   }
 
   return {

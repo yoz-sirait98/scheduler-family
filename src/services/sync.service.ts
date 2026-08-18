@@ -54,6 +54,31 @@ class SyncService {
   }
 
   /**
+   * Migrate unassigned local tasks and categories to an authenticated user ID
+   */
+  async migrateLocalDataToUser(userId: string): Promise<void> {
+    if (!userId || userId === 'local-user' || userId === 'guest-family-user') return;
+
+    // Migrate local tasks
+    const unassignedTasks = await db.tasks.filter((t) => !t.user_id || t.user_id === 'local-user' || t.user_id === 'guest-family-user').toArray();
+    for (const task of unassignedTasks) {
+      task.user_id = userId;
+      await db.tasks.put(task);
+      await this.enqueue('tasks', 'create', task.id, task);
+    }
+
+    // Migrate local categories
+    const unassignedCategories = await db.categories.filter((c) => !c.user_id || c.user_id === 'local-user' || c.user_id === 'guest-family-user').toArray();
+    for (const cat of unassignedCategories) {
+      cat.user_id = userId;
+      await db.categories.put(cat);
+      if (!cat.is_default) {
+        await this.enqueue('categories', 'create', cat.id, cat);
+      }
+    }
+  }
+
+  /**
    * Enqueue a local mutation for sync
    */
   async enqueue(entity: SyncEntity, action: SyncAction, recordId: string, payload: any): Promise<void> {
@@ -94,12 +119,18 @@ class SyncService {
     this.emitStatus({ state: 'syncing', errorMessage: null });
 
     try {
-      // 1. Process sync queue (Push)
-      await this.processQueue();
+      // 1. Resolve current user ID from Supabase session if not passed
+      let activeUserId = userId;
+      if (!activeUserId) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        activeUserId = sessionData?.session?.user?.id;
+      }
 
-      // 2. Pull remote changes (Pull)
-      if (userId) {
-        await this.pullRemoteChanges(userId);
+      // 2. Process sync queue (Push)
+      if (activeUserId) {
+        await this.processQueue(activeUserId);
+        // 3. Pull remote changes (Pull)
+        await this.pullRemoteChanges(activeUserId);
       }
 
       const now = new Date().toISOString();
@@ -127,25 +158,50 @@ class SyncService {
   /**
    * Pushes each queue item to Supabase
    */
-  private async processQueue(): Promise<void> {
-    if (!supabase) return;
+  private async processQueue(activeUserId: string): Promise<void> {
+    if (!supabase || !activeUserId) return;
 
     const queueItems = await db.syncQueue.orderBy('timestamp').toArray();
 
     for (const item of queueItems) {
       try {
         if (item.action === 'create' || item.action === 'update') {
-          // Clean payload of transient fields
+          // Clean payload of transient fields and sanitize data types
           const cleanPayload = { ...item.payload };
           delete cleanPayload.category;
           delete cleanPayload.reminders;
           delete cleanPayload.sync_status;
 
+          // Enforce valid user_id
+          cleanPayload.user_id = activeUserId;
+
+          // Sanitize category_id (must be UUID or null)
+          if (!cleanPayload.category_id || cleanPayload.category_id.startsWith('default-cat') || cleanPayload.category_id === '') {
+            cleanPayload.category_id = null;
+          }
+
+          // Sanitize time fields (empty string is not valid TIME in PostgreSQL)
+          if (!cleanPayload.start_time || cleanPayload.start_time === '') {
+            cleanPayload.start_time = null;
+          }
+          if (!cleanPayload.end_time || cleanPayload.end_time === '') {
+            cleanPayload.end_time = null;
+          }
+          if (!cleanPayload.description || cleanPayload.description === '') {
+            cleanPayload.description = null;
+          }
+          if (!cleanPayload.completed_at || cleanPayload.completed_at === '') {
+            cleanPayload.completed_at = null;
+          }
+
           const { error } = await supabase
             .from(item.entity)
             .upsert(cleanPayload);
 
-          if (error) throw error;
+          if (error) {
+            console.error(`Supabase sync error on ${item.entity}:`, error);
+            throw error;
+          }
         } else if (item.action === 'delete') {
           const { error } = await supabase
             .from(item.entity)
@@ -162,7 +218,6 @@ class SyncService {
         item.retries += 1;
         item.last_error = e.message;
         await db.syncQueue.put(item);
-        // If 5+ retries failed, log and stop loop to avoid spam
         if (item.retries > 5) break;
       }
     }
@@ -172,7 +227,7 @@ class SyncService {
    * Pulls remote changes from Supabase and applies Last-Write-Wins to Dexie
    */
   private async pullRemoteChanges(userId: string): Promise<void> {
-    if (!supabase) return;
+    if (!supabase || !userId) return;
 
     // Pull tasks
     const { data: remoteTasks, error: taskErr } = await supabase
@@ -180,9 +235,9 @@ class SyncService {
       .select('*')
       .eq('user_id', userId);
 
-    if (taskErr) throw taskErr;
-
-    if (remoteTasks && remoteTasks.length > 0) {
+    if (taskErr) {
+      console.warn('Error pulling remote tasks:', taskErr);
+    } else if (remoteTasks && remoteTasks.length > 0) {
       for (const remote of remoteTasks as Task[]) {
         const local = await db.tasks.get(remote.id);
         if (!local || new Date(remote.updated_at) >= new Date(local.updated_at)) {
@@ -197,9 +252,9 @@ class SyncService {
       .select('*')
       .eq('user_id', userId);
 
-    if (catErr) throw catErr;
-
-    if (remoteCategories && remoteCategories.length > 0) {
+    if (catErr) {
+      console.warn('Error pulling remote categories:', catErr);
+    } else if (remoteCategories && remoteCategories.length > 0) {
       for (const remote of remoteCategories as Category[]) {
         const local = await db.categories.get(remote.id);
         if (!local || new Date(remote.updated_at) >= new Date(local.updated_at)) {

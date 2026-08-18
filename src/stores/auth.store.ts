@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { supabase, isSupabaseConfigured } from '@/services/supabase.service';
+import { syncService } from '@/services/sync.service';
 import type { UserProfile } from '@/types/user';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -15,6 +16,12 @@ export const useAuthStore = defineStore('auth', () => {
   const currentUserId = computed(() => user.value?.id || (isGuestMode.value ? 'guest-family-user' : undefined));
   const userDisplayName = computed(() => profile.value?.display_name || user.value?.email?.split('@')[0] || 'Family Member');
 
+  async function onUserAuthenticated(userId: string) {
+    await loadProfile(userId);
+    await syncService.migrateLocalDataToUser(userId);
+    await syncService.triggerSync(userId);
+  }
+
   async function init() {
     loading.value = true;
     try {
@@ -24,7 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
         user.value = data.session?.user || null;
 
         if (user.value) {
-          await loadProfile(user.value.id);
+          await onUserAuthenticated(user.value.id);
         }
 
         // Listen for auth changes
@@ -32,13 +39,12 @@ export const useAuthStore = defineStore('auth', () => {
           session.value = newSession;
           user.value = newSession?.user || null;
           if (user.value) {
-            await loadProfile(user.value.id);
+            await onUserAuthenticated(user.value.id);
           } else {
             profile.value = null;
           }
         });
       } else {
-        // Default to local/guest mode when Supabase is not configured
         isGuestMode.value = true;
       }
     } catch (e) {
@@ -79,7 +85,7 @@ export const useAuthStore = defineStore('auth', () => {
       session.value = data.session;
       isGuestMode.value = false;
       if (data.user) {
-        await loadProfile(data.user.id);
+        await onUserAuthenticated(data.user.id);
       }
       return {};
     } catch (err: any) {
@@ -109,6 +115,9 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = data.user;
       session.value = data.session;
       isGuestMode.value = false;
+      if (data.user) {
+        await onUserAuthenticated(data.user.id);
+      }
       return {};
     } catch (err: any) {
       return { error: err.message || 'Registration failed' };

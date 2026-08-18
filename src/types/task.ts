@@ -55,7 +55,7 @@ export interface TaskRecurrence {
 
 export interface TaskCreateInput {
   title: string;
-  description?: string;
+  description?: string | null;
   task_date: string;
   start_time?: string | null;
   end_time?: string | null;

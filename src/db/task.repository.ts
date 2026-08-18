@@ -9,7 +9,7 @@ export class TaskRepository {
    * Helper to enrich a task with category and reminders
    */
   private async enrichTask(task: Task): Promise<Task> {
-    if (task.category_id) {
+    if (task.category_id && !task.category_id.startsWith('default-cat')) {
       const category = await categoryRepository.getById(task.category_id);
       if (category) {
         task.category = {
@@ -26,8 +26,8 @@ export class TaskRepository {
 
   async getAll(userId?: string): Promise<Task[]> {
     let query = db.tasks.filter((t) => !t.is_deleted);
-    if (userId) {
-      query = db.tasks.filter((t) => !t.is_deleted && (!t.user_id || t.user_id === userId));
+    if (userId && userId !== 'guest-family-user' && userId !== 'local-user') {
+      query = db.tasks.filter((t) => !t.is_deleted && (!t.user_id || t.user_id === userId || t.user_id === 'local-user'));
     }
     const tasks = await query.toArray();
     return Promise.all(tasks.map((t) => this.enrichTask(t)));
@@ -43,7 +43,7 @@ export class TaskRepository {
     const tasks = await db.tasks
       .where('task_date')
       .equals(dateStr)
-      .filter((t) => !t.is_deleted && (!userId || !t.user_id || t.user_id === userId))
+      .filter((t) => !t.is_deleted && (!userId || !t.user_id || t.user_id === userId || t.user_id === 'local-user'))
       .toArray();
 
     const enriched = await Promise.all(tasks.map((t) => this.enrichTask(t)));
@@ -54,7 +54,7 @@ export class TaskRepository {
     const tasks = await db.tasks
       .where('task_date')
       .between(startDate, endDate, true, true)
-      .filter((t) => !t.is_deleted && (!userId || !t.user_id || t.user_id === userId))
+      .filter((t) => !t.is_deleted && (!userId || !t.user_id || t.user_id === userId || t.user_id === 'local-user'))
       .toArray();
 
     const enriched = await Promise.all(tasks.map((t) => this.enrichTask(t)));
@@ -127,7 +127,7 @@ export class TaskRepository {
         return a.title.localeCompare(b.title);
       }
 
-      // Default: sort by Date, then Time (all-day first or sorted by time string)
+      // Default: sort by Date, then Time
       if (a.task_date !== b.task_date) {
         return a.task_date.localeCompare(b.task_date);
       }
@@ -143,18 +143,24 @@ export class TaskRepository {
     const now = new Date().toISOString();
     const taskId = crypto.randomUUID();
 
+    // Sanitize category_id
+    let categoryId = input.category_id || null;
+    if (categoryId && (categoryId.startsWith('default-cat') || categoryId === '')) {
+      categoryId = null;
+    }
+
     const newTask: Task = {
       id: taskId,
       user_id: userId || 'local-user',
       title: input.title.trim(),
       description: input.description?.trim() || null,
       task_date: input.task_date,
-      start_time: input.start_time || null,
-      end_time: input.end_time || null,
+      start_time: input.start_time?.trim() || null,
+      end_time: input.end_time?.trim() || null,
       is_all_day: input.is_all_day ?? (!input.start_time),
       priority: input.priority || 'medium',
       status: 'pending',
-      category_id: input.category_id || null,
+      category_id: categoryId,
       is_deleted: false,
       created_at: now,
       updated_at: now,
@@ -185,6 +191,15 @@ export class TaskRepository {
 
     const now = new Date().toISOString();
     const { reminders: _reminders, ...taskFields } = updates;
+
+    // Sanitize fields
+    if (taskFields.category_id && taskFields.category_id.startsWith('default-cat')) {
+      taskFields.category_id = null;
+    }
+    if (taskFields.start_time === '') taskFields.start_time = null;
+    if (taskFields.end_time === '') taskFields.end_time = null;
+    if (taskFields.description === '') taskFields.description = null;
+
     const updated: Task = {
       ...existing,
       ...taskFields,
