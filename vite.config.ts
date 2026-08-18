@@ -11,31 +11,44 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icons/*.png', 'icons/*.svg'],
       manifest: {
+        id: '/',
         name: 'YJS Scheduler',
         short_name: 'Scheduler',
         description: 'Personal and Family Task Scheduler & Calendar PWA with Offline-First Reminders',
         theme_color: '#4f46e5',
         background_color: '#0f172a',
         display: 'standalone',
+        display_override: ['standalone', 'window-controls-overlay'],
         orientation: 'portrait',
         scope: '/',
         start_url: '/',
+        categories: ['productivity', 'lifestyle', 'utilities'],
+        lang: 'en',
+        dir: 'ltr',
         icons: [
           {
             src: '/icons/icon-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
-            src: '/icons/icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
+            src: '/icons/icon-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
           },
           {
             src: '/icons/icon-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
+          },
+          {
+            src: '/icons/icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       },
@@ -49,7 +62,7 @@ export default defineConfig({
               cacheName: 'google-fonts-cache',
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+                maxAgeSeconds: 60 * 60 * 24 * 365
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -79,7 +92,7 @@ export default defineConfig({
       '@': resolve(__dirname, './src')
     }
   },
-  base: './',
+  base: '/',
   server: {
     port: 3000,
     host: true
