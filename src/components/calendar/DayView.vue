@@ -76,6 +76,7 @@
               <span class="truncate">{{ task.title }}</span>
             </div>
             <div class="flex items-center gap-1 shrink-0 ml-2">
+              <CalendarSync v-if="task.external_provider === 'google'" class="w-3 h-3 text-blue-500" title="Google Calendar event" />
               <Bell v-if="task.reminders && task.reminders.length > 0" class="w-3 h-3" />
             </div>
           </div>
@@ -96,7 +97,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Sun, Plus, Bell } from 'lucide-vue-next';
+import { Sun, Plus, Bell, CalendarSync } from 'lucide-vue-next';
 import { isDateToday } from '@/utils/date';
 import type { HourlySlot } from '@/types/calendar';
 import type { Task } from '@/types/task';

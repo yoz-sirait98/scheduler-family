@@ -90,6 +90,61 @@
               {{ task.reminders[0].minutes_before === 0 ? 'At start time' : `${task.reminders[0].minutes_before}m before` }}
             </span>
           </div>
+
+          <!-- Google Calendar Sync Status -->
+          <div class="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
+            <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
+              <CalendarSync class="w-4 h-4 text-blue-500" />
+              <span>Google Calendar</span>
+            </div>
+
+            <div v-if="task.external_provider === 'google'" class="flex items-center gap-1.5">
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                ✓ Synced
+              </span>
+              <a
+                v-if="task.external_event_link"
+                :href="task.external_event_link"
+                target="_blank"
+                class="p-1 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950"
+                title="Open in Google Calendar"
+              >
+                <ExternalLink class="w-3.5 h-3.5" />
+              </a>
+            </div>
+            <div v-else class="flex items-center gap-1">
+              <button
+                type="button"
+                @click="handleExportToGoogle"
+                :disabled="isExporting"
+                class="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 text-[11px] font-bold flex items-center gap-1 transition-colors"
+              >
+                <UploadCloud class="w-3 h-3" />
+                <span>{{ isExporting ? 'Exporting...' : 'Add to Google' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1-Click Browser Actions -->
+        <div class="flex items-center justify-between text-[11px] px-1 text-slate-500">
+          <a
+            :href="googleWebUrl"
+            target="_blank"
+            class="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-semibold"
+          >
+            <span>Open in Google Calendar Web</span>
+            <ExternalLink class="w-3 h-3" />
+          </a>
+
+          <button
+            type="button"
+            @click="handleDownloadIcs"
+            class="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:underline flex items-center gap-1"
+          >
+            <Download class="w-3 h-3" />
+            <span>Download .ics</span>
+          </button>
         </div>
       </div>
 
@@ -127,9 +182,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { X, Calendar, Clock, Bell, CheckCircle2, Edit3, Trash2 } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
+import { X, Calendar, Clock, Bell, CheckCircle2, Edit3, Trash2, ExternalLink, Download, UploadCloud, CalendarSync } from 'lucide-vue-next';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
+import { useGoogleCalendarStore } from '@/stores/google-calendar.store';
 import { formatDateLong } from '@/utils/date';
 import type { Task } from '@/types/task';
 
@@ -144,8 +200,15 @@ const emit = defineEmits<{
   (e: 'delete', taskId: string): void;
 }>();
 
+const googleStore = useGoogleCalendarStore();
+const isExporting = ref(false);
+
 const formattedDate = computed(() => {
   return props.task ? formatDateLong(props.task.task_date) : '';
+});
+
+const googleWebUrl = computed(() => {
+  return props.task ? googleStore.getWebExportUrl(props.task) : '#';
 });
 
 const priorityBadgeClass = computed(() => {
@@ -161,6 +224,25 @@ const priorityBadgeClass = computed(() => {
       return 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200';
   }
 });
+
+async function handleExportToGoogle() {
+  if (!props.task) return;
+  if (!googleStore.isConnected) {
+    // If not authenticated via OAuth, open web template link directly
+    window.open(googleWebUrl.value, '_blank');
+    return;
+  }
+
+  isExporting.value = true;
+  await googleStore.exportSingleTask(props.task);
+  isExporting.value = false;
+}
+
+function handleDownloadIcs() {
+  if (props.task) {
+    googleStore.downloadIcs(props.task);
+  }
+}
 
 function handleDelete() {
   if (!props.task) return;

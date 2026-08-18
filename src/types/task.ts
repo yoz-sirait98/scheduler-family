@@ -27,6 +27,13 @@ export interface Task {
   };
   reminders?: TaskReminder[];
   sync_status?: 'synced' | 'pending' | 'error';
+
+  // External calendar synchronization (Google Calendar, etc.)
+  external_provider?: 'google' | null;
+  external_calendar_id?: string | null;
+  external_event_id?: string | null;
+  external_event_link?: string | null;
+  external_synced_at?: string | null;
 }
 
 export interface TaskReminder {
@@ -63,11 +70,17 @@ export interface TaskCreateInput {
   priority?: TaskPriority;
   category_id?: string | null;
   reminders?: { minutes_before: number; reminder_type?: 'notification' | 'alarm' | 'both' }[];
+  external_provider?: 'google' | null;
+  external_calendar_id?: string | null;
+  external_event_id?: string | null;
+  external_event_link?: string | null;
+  external_synced_at?: string | null;
 }
 
 export interface TaskUpdateInput extends Partial<TaskCreateInput> {
   status?: TaskStatus;
   completed_at?: string | null;
+  is_deleted?: boolean;
 }
 
 export type TaskFilterType = 'all' | 'today' | 'upcoming' | 'overdue' | 'completed';

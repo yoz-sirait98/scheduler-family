@@ -161,6 +161,11 @@ export class TaskRepository {
       priority: input.priority || 'medium',
       status: 'pending',
       category_id: categoryId,
+      external_provider: input.external_provider || null,
+      external_calendar_id: input.external_calendar_id || null,
+      external_event_id: input.external_event_id || null,
+      external_event_link: input.external_event_link || null,
+      external_synced_at: input.external_synced_at || null,
       is_deleted: false,
       created_at: now,
       updated_at: now,
@@ -183,6 +188,15 @@ export class TaskRepository {
     }
 
     return this.enrichTask(newTask);
+  }
+
+  async getByExternalEventId(externalEventId: string): Promise<Task | undefined> {
+    const task = await db.tasks
+      .where('external_event_id')
+      .equals(externalEventId)
+      .first();
+    if (!task || task.is_deleted) return undefined;
+    return this.enrichTask(task);
   }
 
   async update(id: string, updates: TaskUpdateInput): Promise<Task | undefined> {

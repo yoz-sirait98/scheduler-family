@@ -28,6 +28,15 @@ export class AppDatabase extends Dexie {
       syncQueue: 'id, entity, action, record_id, timestamp, retries',
       settings: 'key'
     });
+
+    this.version(2).stores({
+      tasks: 'id, user_id, category_id, task_date, start_time, priority, status, is_deleted, updated_at, created_at, external_event_id, external_provider',
+      categories: 'id, user_id, name, is_default, updated_at, created_at',
+      reminders: 'id, task_id, user_id, minutes_before, is_enabled, is_triggered, updated_at',
+      recurrences: 'id, task_id, user_id, updated_at',
+      syncQueue: 'id, entity, action, record_id, timestamp, retries',
+      settings: 'key'
+    });
   }
 }
 

@@ -56,10 +56,22 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     priority TEXT DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')) NOT NULL,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'cancelled')) NOT NULL,
     is_deleted BOOLEAN DEFAULT FALSE NOT NULL, -- For soft delete sync tracking
+    external_provider TEXT,                    -- e.g. 'google'
+    external_calendar_id TEXT,                -- Google Calendar ID (e.g. 'primary')
+    external_event_id TEXT,                   -- Google Calendar Event ID
+    external_event_link TEXT,                 -- Direct URL to event in Google Calendar
+    external_synced_at TIMESTAMPTZ,           -- Timestamp of last sync with external calendar
     created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL,
     completed_at TIMESTAMPTZ
 );
+
+-- Idempotent migrations for existing databases (Phase 2 Google Calendar columns)
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS external_provider TEXT;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS external_calendar_id TEXT;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS external_event_id TEXT;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS external_event_link TEXT;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS external_synced_at TIMESTAMPTZ;
 
 -- ==============================================================================
 -- 4. TASK REMINDERS TABLE
@@ -99,6 +111,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_date ON public.tasks(task_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON public.tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON public.tasks(priority);
 CREATE INDEX IF NOT EXISTS idx_tasks_updated_at ON public.tasks(updated_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_external_event_id ON public.tasks(external_event_id);
 CREATE INDEX IF NOT EXISTS idx_categories_user_id ON public.categories(user_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_task_id ON public.task_reminders(task_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_user_id ON public.task_reminders(user_id);

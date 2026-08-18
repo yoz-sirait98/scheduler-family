@@ -7,7 +7,8 @@ Database Name: `YjsSchedulerDB`
 ### Tables:
 1. **`tasks`**: Stores task records locally.
    - Primary Key: `id` (UUID string)
-   - Indexed fields: `task_date`, `status`, `priority`, `category_id`, `updated_at`, `user_id`, `is_deleted`
+   - Indexed fields: `task_date`, `status`, `priority`, `category_id`, `updated_at`, `user_id`, `is_deleted`, `external_event_id`, `external_provider`
+   - Additional fields: `external_calendar_id`, `external_event_link`, `external_synced_at`
 2. **`categories`**: Stores family & personal categories.
    - Primary Key: `id` (UUID string)
    - Indexed fields: `user_id`, `name`, `is_default`, `updated_at`

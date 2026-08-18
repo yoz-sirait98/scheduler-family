@@ -208,6 +208,31 @@
             class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs transition-all resize-none font-sans"
           ></textarea>
         </div>
+
+        <!-- Google Calendar Sync Option -->
+        <div v-if="googleStore.isConnected" class="flex items-center justify-between p-3 rounded-2xl bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/60">
+          <div class="flex items-center gap-2">
+            <CalendarSync class="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <div>
+              <span class="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                Sync with Google Calendar
+              </span>
+              <span class="text-[10px] text-slate-500">Add to {{ googleStore.selectedCalendar?.summary || 'Primary' }}</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            @click="form.sync_to_google = !form.sync_to_google"
+            class="relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+            :class="form.sync_to_google ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'"
+          >
+            <span
+              class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out"
+              :class="form.sync_to_google ? 'translate-x-5' : 'translate-x-0'"
+            ></span>
+          </button>
+        </div>
       </form>
 
       <!-- Pinned Action Buttons (Always Visible) -->
@@ -233,9 +258,10 @@
 
 <script setup lang="ts">
 import { reactive, watch, ref, computed } from 'vue';
-import { CalendarPlus, X, Bell } from 'lucide-vue-next';
+import { CalendarPlus, X, Bell, CalendarSync } from 'lucide-vue-next';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import { useCategoryStore } from '@/stores/category.store';
+import { useGoogleCalendarStore } from '@/stores/google-calendar.store';
 import { getTodayDateString } from '@/utils/date';
 import type { Task, TaskCreateInput, TaskPriority } from '@/types/task';
 
@@ -252,6 +278,7 @@ const emit = defineEmits<{
 }>();
 
 const categoryStore = useCategoryStore();
+const googleStore = useGoogleCalendarStore();
 
 const priorityOptions: { label: string; value: TaskPriority; activeClass: string }[] = [
   { label: 'Low', value: 'low', activeClass: 'bg-slate-200 dark:bg-slate-700 border-slate-400 text-slate-900 dark:text-white font-bold' },
@@ -278,6 +305,7 @@ const form = reactive({
   is_all_day: false,
   priority: 'medium' as TaskPriority,
   category_id: null as string | null,
+  sync_to_google: true,
 });
 
 function setQuickDate(type: 'today' | 'tomorrow') {
@@ -297,6 +325,7 @@ watch(
         form.is_all_day = props.editingTask.is_all_day;
         form.priority = props.editingTask.priority;
         form.category_id = props.editingTask.category_id || null;
+        form.sync_to_google = props.editingTask.external_provider === 'google';
         reminderMinutes.value = props.editingTask.reminders?.[0]?.minutes_before ?? 15;
       } else {
         form.title = '';
@@ -307,6 +336,7 @@ watch(
         form.is_all_day = !props.defaultTime;
         form.priority = 'medium';
         form.category_id = null;
+        form.sync_to_google = googleStore.autoSyncEnabled;
         reminderMinutes.value = 15;
       }
     }
@@ -334,6 +364,8 @@ function handleSubmit() {
     priority: form.priority,
     category_id: form.category_id,
     reminders,
+    external_provider: form.sync_to_google && googleStore.isConnected ? 'google' : undefined,
+    external_calendar_id: form.sync_to_google && googleStore.isConnected ? googleStore.selectedCalendarId : undefined,
   });
 }
 </script>

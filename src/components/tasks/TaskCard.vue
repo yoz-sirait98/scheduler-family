@@ -86,6 +86,16 @@
           <span v-if="task.reminders[0].minutes_before > 0">{{ task.reminders[0].minutes_before }}m</span>
         </div>
 
+        <!-- Google Calendar badge indicator -->
+        <div
+          v-if="task.external_provider === 'google'"
+          class="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 font-semibold text-[10px]"
+          title="Synced with Google Calendar"
+        >
+          <CalendarSync class="w-3 h-3 text-blue-500" />
+          <span>G-Cal</span>
+        </div>
+
         <!-- Overdue Badge -->
         <span
           v-if="isOverdue && task.status !== 'completed'"
@@ -100,7 +110,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Check, Clock, Bell } from 'lucide-vue-next';
+import { Check, Clock, Bell, CalendarSync } from 'lucide-vue-next';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import { formatTimeString, formatDateShort, isDateToday, isTaskOverdue } from '@/utils/date';
 import type { Task } from '@/types/task';
