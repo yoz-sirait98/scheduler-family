@@ -10,7 +10,50 @@
       </p>
     </div>
 
-    <!-- 1. Notification & Alarm Preferences -->
+    <!-- 1. PWA App Installation Card -->
+    <div class="p-4 rounded-3xl bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 text-white shadow-md border border-indigo-500/30 space-y-3">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-md shrink-0">
+            <Smartphone class="w-5 h-5" />
+          </div>
+          <div>
+            <h3 class="text-xs font-bold">
+              Install App on Phone / Desktop (PWA)
+            </h3>
+            <p class="text-[11px] text-indigo-200">
+              {{ isStandalone ? '✓ App is already installed and running in standalone mode' : 'Run full-screen with offline support and alarm chimes' }}
+            </p>
+          </div>
+        </div>
+
+        <button
+          v-if="!isStandalone && deferredPrompt"
+          @click="handleInstallClick"
+          class="px-3.5 py-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold shadow-xs active:scale-95 transition-all shrink-0"
+        >
+          Install Now
+        </button>
+      </div>
+
+      <!-- Android & iOS Instructions if not already standalone -->
+      <div v-if="!isStandalone" class="pt-2 border-t border-indigo-800/60 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-indigo-200">
+        <div class="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+          <strong class="text-white flex items-center gap-1">
+            <span>🤖 Android (Chrome):</span>
+          </strong>
+          <p>Tap the <strong>3 dots (⋮)</strong> in Chrome menu -> tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</p>
+        </div>
+        <div class="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+          <strong class="text-white flex items-center gap-1">
+            <span>🍏 iPhone (Safari):</span>
+          </strong>
+          <p>Tap <strong>Share (⎋)</strong> at the bottom of Safari -> tap <strong>"Add to Home Screen" (⊞)</strong>.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Notification & Alarm Preferences -->
     <div class="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-3">
       <div class="flex items-center gap-2.5">
         <div class="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
@@ -84,7 +127,7 @@
       </div>
     </div>
 
-    <!-- 2. Synchronization & Supabase Cloud Status -->
+    <!-- 3. Synchronization & Supabase Cloud Status -->
     <div class="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-3">
       <div class="flex items-center gap-2.5">
         <div class="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
@@ -127,7 +170,7 @@
       </div>
     </div>
 
-    <!-- 3. Account & Family Profile -->
+    <!-- 4. Account & Family Profile -->
     <div class="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-3">
       <div class="flex items-center gap-2.5">
         <div class="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
@@ -172,7 +215,7 @@
       </div>
     </div>
 
-    <!-- 4. App Info & Specs -->
+    <!-- 5. App Info & Specs -->
     <div class="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs text-[11px] text-slate-500 dark:text-slate-400 space-y-1.5">
       <div class="flex items-center justify-between">
         <span>Application Version</span>
@@ -196,9 +239,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { Bell, Volume2, Cloud, User, RefreshCw } from 'lucide-vue-next';
+import { Smartphone, Bell, Volume2, Cloud, User, RefreshCw } from 'lucide-vue-next';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useAuthStore } from '@/stores/auth.store';
+import { usePwaInstall } from '@/composables/usePwaInstall';
 import { audioService } from '@/services/audio.service';
 import { notificationService } from '@/services/notification.service';
 import { isSupabaseConfigured } from '@/services/supabase.service';
@@ -206,6 +250,7 @@ import { formatDateLong } from '@/utils/date';
 
 const settingsStore = useSettingsStore();
 const authStore = useAuthStore();
+const { deferredPrompt, isStandalone, promptInstall } = usePwaInstall();
 const isConfigured = isSupabaseConfigured;
 const syncing = ref(false);
 
@@ -232,5 +277,9 @@ async function triggerSync() {
   syncing.value = true;
   await settingsStore.triggerManualSync();
   syncing.value = false;
+}
+
+async function handleInstallClick() {
+  await promptInstall();
 }
 </script>

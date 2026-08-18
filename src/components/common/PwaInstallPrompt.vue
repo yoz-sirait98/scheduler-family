@@ -1,17 +1,17 @@
 <template>
-  <div>
-    <!-- Android / Chrome / Edge Install Banner -->
+  <div v-if="!isStandalone && !isDismissed" class="mb-4">
+    <!-- 1. Native Android / Chrome / Desktop Install Banner (when deferredPrompt is ready) -->
     <div
-      v-if="deferredPrompt && !isDismissed"
-      class="mb-4 p-3.5 rounded-2xl bg-slate-900 text-white shadow-xl flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-200 border border-slate-800"
+      v-if="deferredPrompt"
+      class="p-3.5 rounded-2xl bg-gradient-to-r from-slate-900 to-indigo-950 text-white shadow-xl flex items-center justify-between gap-3 border border-indigo-500/30 animate-in slide-in-from-bottom duration-200"
     >
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shrink-0 font-bold text-sm shadow-md">
-          YJS
+          <Download class="w-4 h-4" />
         </div>
         <div>
           <h4 class="text-xs font-bold">Install YJS Scheduler App</h4>
-          <p class="text-[11px] text-slate-300">Install as standalone app with offline alerts</p>
+          <p class="text-[11px] text-indigo-200">1-tap install for full-screen offline access</p>
         </div>
       </div>
 
@@ -24,18 +24,18 @@
           <X class="w-4 h-4" />
         </button>
         <button
-          @click="installPwa"
-          class="px-3 py-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
+          @click="handleInstall"
+          class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
         >
           Install
         </button>
       </div>
     </div>
 
-    <!-- iOS Safari "Add to Home Screen" Instructions Banner -->
+    <!-- 2. iOS Safari Install Guide Banner -->
     <div
-      v-if="isIosSafari && !isInStandaloneMode && !isDismissed"
-      class="mb-4 p-3.5 rounded-2xl bg-indigo-900/95 text-white shadow-xl border border-indigo-700/60 animate-in slide-in-from-bottom duration-200"
+      v-else-if="isIos"
+      class="p-3.5 rounded-2xl bg-indigo-900/95 text-white shadow-xl border border-indigo-700/60 animate-in slide-in-from-bottom duration-200"
     >
       <div class="flex items-start justify-between gap-2">
         <div class="flex items-start gap-2.5">
@@ -45,7 +45,7 @@
           <div>
             <h4 class="text-xs font-bold">Install on iPhone (PWA)</h4>
             <p class="text-[11px] text-indigo-200 leading-snug mt-0.5">
-              Tap <strong class="text-white">Share</strong> <span class="text-xs">⎋</span> at the bottom of Safari, then tap <strong class="text-white">"Add to Home Screen"</strong> <span class="text-xs">⊞</span> for full-screen offline mode!
+              Tap <strong class="text-white">Share</strong> <span class="text-xs">⎋</span> at bottom of Safari, then tap <strong class="text-white">"Add to Home Screen"</strong> <span class="text-xs">⊞</span>.
             </p>
           </div>
         </div>
@@ -62,45 +62,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
-import { X, Share2 } from 'lucide-vue-next';
+import { Download, X, Share2 } from 'lucide-vue-next';
+import { usePwaInstall } from '@/composables/usePwaInstall';
 
-const deferredPrompt = ref<any>(null);
-const isDismissed = ref(false);
+const {
+  deferredPrompt,
+  isDismissed,
+  isIos,
+  isStandalone,
+  promptInstall,
+  dismiss,
+} = usePwaInstall();
 
-const isIosSafari = computed(() => {
-  if (typeof window === 'undefined') return false;
-  const ua = window.navigator.userAgent;
-  const isIos = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
-  const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|OPiOS|mercury/i.test(ua);
-  return isIos && isSafari;
-});
-
-const isInStandaloneMode = computed(() => {
-  if (typeof window === 'undefined') return false;
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as any).standalone === true
-  );
-});
-
-onMounted(() => {
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt.value = e;
-  });
-});
-
-async function installPwa() {
-  if (!deferredPrompt.value) return;
-  deferredPrompt.value.prompt();
-  const { outcome } = await deferredPrompt.value.userChoice;
-  if (outcome === 'accepted') {
-    deferredPrompt.value = null;
-  }
-}
-
-function dismiss() {
-  isDismissed.value = true;
+async function handleInstall() {
+  await promptInstall();
 }
 </script>
