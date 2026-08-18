@@ -649,17 +649,13 @@ export class GoogleCalendarService {
     if (isAllDay && event.start.date) {
       taskDate = event.start.date;
     } else if (event.start.dateTime) {
-      const startDateObj = new Date(event.start.dateTime);
-      taskDate = startDateObj.toISOString().split('T')[0];
-      startTime = `${String(startDateObj.getHours()).padStart(2, '0')}:${String(
-        startDateObj.getMinutes()
-      ).padStart(2, '0')}`;
+      const parsedStart = this.parseIsoToLocalParts(event.start.dateTime, event.start.timeZone || DEFAULT_TIMEZONE);
+      taskDate = parsedStart.date;
+      startTime = parsedStart.time;
 
       if (event.end.dateTime) {
-        const endDateObj = new Date(event.end.dateTime);
-        endTime = `${String(endDateObj.getHours()).padStart(2, '0')}:${String(
-          endDateObj.getMinutes()
-        ).padStart(2, '0')}`;
+        const parsedEnd = this.parseIsoToLocalParts(event.end.dateTime, event.end.timeZone || DEFAULT_TIMEZONE);
+        endTime = parsedEnd.time;
       }
     } else {
       taskDate = new Date().toISOString().split('T')[0];
@@ -678,6 +674,57 @@ export class GoogleCalendarService {
       external_event_link: event.htmlLink || null,
       external_synced_at: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Helper to parse ISO date-time strings reliably across all server/runner timezones
+   */
+  private parseIsoToLocalParts(
+    isoString: string,
+    targetTimeZone = DEFAULT_TIMEZONE
+  ): { date: string; time: string } {
+    if (!isoString.includes('T')) {
+      return { date: isoString, time: '' };
+    }
+
+    // Direct match for ISO strings with explicit offset (e.g. 2026-08-22T09:00:00+07:00)
+    const offsetMatch = isoString.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+    if (offsetMatch && !isoString.endsWith('Z')) {
+      return { date: offsetMatch[1], time: offsetMatch[2] };
+    }
+
+    // Fallback for UTC strings ending with 'Z'
+    try {
+      const d = new Date(isoString);
+      const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: targetTimeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+
+      const parts = formatter.formatToParts(d);
+      const year = parts.find((p) => p.type === 'year')?.value || '1970';
+      const month = parts.find((p) => p.type === 'month')?.value || '01';
+      const day = parts.find((p) => p.type === 'day')?.value || '01';
+      let hour = parts.find((p) => p.type === 'hour')?.value || '00';
+      if (hour === '24') hour = '00';
+      const minute = parts.find((p) => p.type === 'minute')?.value || '00';
+
+      return {
+        date: `${year}-${month}-${day}`,
+        time: `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`,
+      };
+    } catch {
+      const parts = isoString.split('T');
+      return {
+        date: parts[0],
+        time: parts[1] ? parts[1].substring(0, 5) : '',
+      };
+    }
   }
 
   // --------------------------------------------------------------------------
