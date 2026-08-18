@@ -1,25 +1,25 @@
 <template>
-  <header class="sticky top-0 z-30 w-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+  <header class="sticky top-0 z-30 w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] transition-colors">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
       <!-- Brand / Page Context -->
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0">
           <CalendarCheck class="w-4 h-4" />
         </div>
         <div>
-          <span class="font-bold text-slate-900 dark:text-white tracking-tight text-base sm:text-lg">
-            YJS <span class="text-indigo-600 dark:text-indigo-400 font-semibold">Scheduler</span>
+          <span class="font-black text-slate-900 dark:text-white tracking-tight text-base sm:text-lg">
+            YJS <span class="text-indigo-600 dark:text-indigo-400 font-bold">Scheduler</span>
           </span>
         </div>
       </div>
 
       <!-- Actions & Status Badges -->
-      <div class="flex items-center gap-2 sm:gap-3">
+      <div class="flex items-center gap-1.5 sm:gap-2.5">
         <!-- Online / Sync Status Button -->
         <button
           @click="handleSyncClick"
           :title="syncTooltip"
-          class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all active:scale-95"
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all active:scale-95 shrink-0"
           :class="syncButtonClasses"
         >
           <RefreshCw
@@ -42,8 +42,8 @@
         </button>
 
         <!-- User / Guest Mode Badge -->
-        <div class="flex items-center gap-1.5 pl-1">
-          <div class="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-bold text-xs flex items-center justify-center border border-indigo-200 dark:border-indigo-700/50">
+        <div class="flex items-center gap-1.5 pl-0.5">
+          <div class="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-black text-xs flex items-center justify-center border border-indigo-200 dark:border-indigo-700/50 shadow-2xs">
             {{ authStore.userDisplayName.charAt(0).toUpperCase() }}
           </div>
         </div>
