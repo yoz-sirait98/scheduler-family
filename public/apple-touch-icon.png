@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#4338ca" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#818cf8" />
+    </linearGradient>
+  </defs>
+  <!-- Rounded Base -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+  
+  <!-- Calendar Sheet -->
+  <rect x="96" y="128" width="320" height="288" rx="48" fill="#ffffff" />
+  
+  <!-- Top Calendar Header Strip -->
+  <path d="M 96 176 C 96 150 116 128 144 128 L 368 128 C 396 128 416 150 416 176 L 416 208 L 96 208 Z" fill="#4f46e5" />
+  
+  <!-- Binder Rings -->
+  <rect x="160" y="96" width="32" height="64" rx="16" fill="#ffffff" stroke="#4338ca" stroke-width="8" />
+  <rect x="320" y="96" width="32" height="64" rx="16" fill="#ffffff" stroke="#4338ca" stroke-width="8" />
+  
+  <!-- Checkmark -->
+  <path d="M 180 300 L 236 356 L 332 250" fill="none" stroke="#4f46e5" stroke-width="36" stroke-linecap="round" stroke-linejoin="round" />
+  
+  <!-- Small Reminder Bell Star Dot -->
+  <circle cx="340" cy="168" r="16" fill="#fbbf24" />
+</svg>
