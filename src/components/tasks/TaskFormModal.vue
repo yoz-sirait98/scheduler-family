@@ -1,119 +1,127 @@
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+  <div v-if="isOpen" class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
     <!-- Backdrop dismiss -->
     <div class="fixed inset-0" @click="handleClose"></div>
 
-    <!-- Modal Content -->
+    <!-- Modal / Bottom Sheet Container -->
     <div
-      class="relative w-full sm:max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 z-10 max-h-[90vh] overflow-y-auto transform transition-all pb-[env(safe-area-inset-bottom,20px)]"
+      class="relative w-full sm:max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 z-10 flex flex-col max-h-[92vh] sm:max-h-[85vh] animate-in fade-in slide-in-from-bottom-6 duration-200"
     >
       <!-- Sheet Handle for Mobile Drag Affordance -->
-      <div class="sm:hidden w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-4"></div>
+      <div class="sm:hidden pt-3 pb-1 flex justify-center">
+        <div class="w-12 h-1 bg-slate-300 dark:bg-slate-700 rounded-full"></div>
+      </div>
 
-      <!-- Header -->
-      <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100 dark:border-slate-800">
-        <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <CalendarPlus class="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+      <!-- Pinned Header -->
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 shrink-0">
+        <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <CalendarPlus class="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
           <span>{{ editingTask ? 'Edit Task' : 'Quick Add Task' }}</span>
         </h3>
         <button
           @click="handleClose"
-          class="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+          class="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
         >
           <X class="w-5 h-5" />
         </button>
       </div>
 
-      <!-- Form -->
-      <form @submit.prevent="handleSubmit" class="space-y-4">
+      <!-- Scrollable Form Body -->
+      <form @submit.prevent="handleSubmit" id="task-form" class="flex-1 overflow-y-auto px-5 py-4 space-y-4 touch-scroll">
         <!-- Title Input -->
         <div>
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
             Task Title *
           </label>
           <input
             v-model="form.title"
             type="text"
             required
-            placeholder="e.g. Meeting HR, Buy milk, Dentist"
-            class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm transition-all"
+            placeholder="e.g. Doctor appointment, Groceries, Meeting"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm transition-all"
             autofocus
           />
         </div>
 
-        <!-- Description (Optional) -->
+        <!-- Quick Date Chips & Date Picker -->
         <div>
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
-            Description / Notes
-          </label>
-          <textarea
-            v-model="form.description"
-            rows="2"
-            placeholder="Additional notes, links, or instructions..."
-            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs transition-all resize-none"
-          ></textarea>
-        </div>
-
-        <!-- Date & Time Row -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <!-- Date -->
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               Date *
             </label>
-            <input
-              v-model="form.task_date"
-              type="date"
-              required
-              class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-            />
+            <!-- Quick Date Chips -->
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                @click="setQuickDate('today')"
+                class="px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all"
+                :class="form.task_date === todayStr ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-transparent'"
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                @click="setQuickDate('tomorrow')"
+                class="px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all"
+                :class="form.task_date === tomorrowStr ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-transparent'"
+              >
+                Tomorrow
+              </button>
+            </div>
           </div>
+          <input
+            v-model="form.task_date"
+            type="date"
+            required
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-medium"
+          />
+        </div>
 
-          <!-- All Day Toggle -->
-          <div class="flex items-center justify-between sm:justify-center gap-3 pt-2 sm:pt-6">
-            <span class="text-xs font-medium text-slate-700 dark:text-slate-300">All Day Task</span>
+        <!-- All Day Toggle & Time Row -->
+        <div class="space-y-2.5 p-3 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">All-Day Task</span>
             <button
               type="button"
               @click="form.is_all_day = !form.is_all_day"
-              class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+              class="relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
               :class="form.is_all_day ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'"
             >
               <span
-                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out"
                 :class="form.is_all_day ? 'translate-x-5' : 'translate-x-0'"
               ></span>
             </button>
           </div>
+
+          <!-- Start & End Time (if not all day) -->
+          <div v-if="!form.is_all_day" class="grid grid-cols-2 gap-2.5 pt-1">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                Start Time
+              </label>
+              <input
+                v-model="form.start_time"
+                type="time"
+                class="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                End Time (Optional)
+              </label>
+              <input
+                v-model="form.end_time"
+                type="time"
+                class="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
         </div>
 
-        <!-- Start & End Time (if not all day) -->
-        <div v-if="!form.is_all_day" class="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40">
-          <div>
-            <label class="block text-xs font-semibold text-indigo-950 dark:text-indigo-200 mb-1">
-              Start Time
-            </label>
-            <input
-              v-model="form.start_time"
-              type="time"
-              class="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-indigo-950 dark:text-indigo-200 mb-1">
-              End Time (Optional)
-            </label>
-            <input
-              v-model="form.end_time"
-              type="time"
-              class="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-        </div>
-
-        <!-- Category Picker -->
+        <!-- Category Selector -->
         <div>
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
             Category
           </label>
           <div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
@@ -150,7 +158,7 @@
 
         <!-- Priority Selector -->
         <div>
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
             Priority
           </label>
           <div class="grid grid-cols-4 gap-2">
@@ -159,7 +167,7 @@
               :key="p.value"
               type="button"
               @click="form.priority = p.value"
-              class="py-1.5 px-2 rounded-xl text-xs font-medium border text-center transition-all"
+              class="py-1.5 px-2 rounded-xl text-xs font-semibold border text-center transition-all"
               :class="form.priority === p.value ? p.activeClass : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'"
             >
               {{ p.label }}
@@ -169,13 +177,13 @@
 
         <!-- Reminder Selector -->
         <div>
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
             <Bell class="w-3.5 h-3.5 text-indigo-500" />
-            <span>Reminder & Alarm</span>
+            <span>Reminder & Sound Chime</span>
           </label>
           <select
             v-model="reminderMinutes"
-            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option :value="-1">No Reminder</option>
             <option :value="0">At time of task</option>
@@ -188,29 +196,43 @@
           </select>
         </div>
 
-        <!-- Action Buttons -->
-        <div class="flex items-center gap-3 pt-3">
-          <button
-            type="button"
-            @click="handleClose"
-            class="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold text-sm shadow-md shadow-indigo-500/25 active:scale-98 transition-all"
-          >
-            {{ editingTask ? 'Save Changes' : 'Create Task' }}
-          </button>
+        <!-- Description / Notes -->
+        <div>
+          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+            Notes (Optional)
+          </label>
+          <textarea
+            v-model="form.description"
+            rows="2"
+            placeholder="Additional notes, links, or instructions..."
+            class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs transition-all resize-none font-sans"
+          ></textarea>
         </div>
       </form>
+
+      <!-- Pinned Action Buttons (Always Visible) -->
+      <div class="px-5 py-3 border-t border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center gap-3 shrink-0 rounded-b-3xl pb-[env(safe-area-inset-bottom,16px)]">
+        <button
+          type="button"
+          @click="handleClose"
+          class="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          form="task-form"
+          class="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-xs shadow-md shadow-indigo-500/25 active:scale-95 transition-all"
+        >
+          {{ editingTask ? 'Save Changes' : 'Create Task' }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, watch, ref } from 'vue';
+import { reactive, watch, ref, computed } from 'vue';
 import { CalendarPlus, X, Bell } from 'lucide-vue-next';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import { useCategoryStore } from '@/stores/category.store';
@@ -232,13 +254,20 @@ const emit = defineEmits<{
 const categoryStore = useCategoryStore();
 
 const priorityOptions: { label: string; value: TaskPriority; activeClass: string }[] = [
-  { label: 'Low', value: 'low', activeClass: 'bg-slate-200 dark:bg-slate-700 border-slate-400 text-slate-900 dark:text-white font-semibold' },
-  { label: 'Med', value: 'medium', activeClass: 'bg-indigo-100 dark:bg-indigo-900/60 border-indigo-400 text-indigo-900 dark:text-indigo-200 font-semibold' },
-  { label: 'High', value: 'high', activeClass: 'bg-amber-100 dark:bg-amber-900/60 border-amber-400 text-amber-900 dark:text-amber-200 font-semibold' },
-  { label: 'Urgent', value: 'urgent', activeClass: 'bg-rose-100 dark:bg-rose-900/60 border-rose-400 text-rose-900 dark:text-rose-200 font-semibold' },
+  { label: 'Low', value: 'low', activeClass: 'bg-slate-200 dark:bg-slate-700 border-slate-400 text-slate-900 dark:text-white font-bold' },
+  { label: 'Med', value: 'medium', activeClass: 'bg-indigo-100 dark:bg-indigo-900/70 border-indigo-400 text-indigo-900 dark:text-indigo-200 font-bold' },
+  { label: 'High', value: 'high', activeClass: 'bg-amber-100 dark:bg-amber-900/70 border-amber-400 text-amber-900 dark:text-amber-200 font-bold' },
+  { label: 'Urgent', value: 'urgent', activeClass: 'bg-rose-100 dark:bg-rose-900/70 border-rose-400 text-rose-900 dark:text-rose-200 font-bold' },
 ];
 
 const reminderMinutes = ref<number>(15);
+
+const todayStr = getTodayDateString();
+const tomorrowStr = computed(() => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split('T')[0];
+});
 
 const form = reactive({
   title: '',
@@ -250,6 +279,10 @@ const form = reactive({
   priority: 'medium' as TaskPriority,
   category_id: null as string | null,
 });
+
+function setQuickDate(type: 'today' | 'tomorrow') {
+  form.task_date = type === 'today' ? todayStr : tomorrowStr.value;
+}
 
 watch(
   () => props.isOpen,

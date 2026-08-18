@@ -8,8 +8,8 @@
       <!-- Desktop Sidebar -->
       <Sidebar @open-add="openTaskForm()" />
 
-      <!-- Main Page Outlet -->
-      <main class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 pb-24 md:pb-8">
+      <!-- Main Page Outlet with safe area & bottom nav clearance -->
+      <main class="flex-1 min-w-0 px-3 py-4 sm:px-6 lg:px-8 pb-32 sm:pb-36 md:pb-12">
         <!-- Notification Permission Banner -->
         <NotificationBanner />
 

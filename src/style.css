@@ -3,17 +3,30 @@
 @tailwind utilities;
 
 @layer base {
-  html, body {
-    @apply h-full antialiased font-sans;
+  html {
+    min-height: 100%;
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-height: 100vh;
+    @apply antialiased font-sans bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100;
     -webkit-tap-highlight-color: transparent;
   }
 }
 
-/* Hide scrollbar for clean horizontal chips on mobile */
+/* Hide scrollbars for clean horizontal chips on touch devices */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Custom smooth scroll momentum for iOS/mobile */
+.touch-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }

@@ -1,28 +1,30 @@
 <template>
-  <div v-if="task" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+  <div v-if="task" class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
     <!-- Backdrop -->
     <div class="fixed inset-0" @click="$emit('close')"></div>
 
-    <!-- Dialog -->
-    <div class="relative w-full sm:max-w-md bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 z-10 pb-[env(safe-area-inset-bottom,24px)] animate-in fade-in zoom-in-95 duration-150">
+    <!-- Dialog / Bottom Sheet Container -->
+    <div class="relative w-full sm:max-w-md bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 z-10 flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-in fade-in slide-in-from-bottom-6 duration-200">
       <!-- Sheet Handle -->
-      <div class="sm:hidden w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-4"></div>
+      <div class="sm:hidden pt-3 pb-1 flex justify-center">
+        <div class="w-12 h-1 bg-slate-300 dark:bg-slate-700 rounded-full"></div>
+      </div>
 
-      <!-- Header & Badges -->
-      <div class="flex items-start justify-between gap-3 mb-4">
+      <!-- Pinned Header & Badges -->
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 shrink-0">
         <div class="flex items-center gap-2 flex-wrap">
           <!-- Priority Badge -->
           <span
-            class="px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider"
+            class="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider"
             :class="priorityBadgeClass"
           >
-            {{ task.priority }} Priority
+            {{ task.priority }}
           </span>
 
           <!-- Category Badge -->
           <span
             v-if="task.category"
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+            class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold"
             :style="{
               backgroundColor: `${task.category.color}18`,
               color: task.category.color,
@@ -35,85 +37,88 @@
 
         <button
           @click="$emit('close')"
-          class="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+          class="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
         >
           <X class="w-5 h-5" />
         </button>
       </div>
 
-      <!-- Task Title -->
-      <h2
-        class="text-xl font-bold text-slate-900 dark:text-white mb-2"
-        :class="{ 'line-through text-slate-400': task.status === 'completed' }"
-      >
-        {{ task.title }}
-      </h2>
+      <!-- Scrollable Body -->
+      <div class="flex-1 overflow-y-auto px-5 py-4 space-y-4 touch-scroll">
+        <!-- Task Title -->
+        <h2
+          class="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white leading-tight"
+          :class="{ 'line-through text-slate-400': task.status === 'completed' }"
+        >
+          {{ task.title }}
+        </h2>
 
-      <!-- Description -->
-      <p v-if="task.description" class="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-line mb-5 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800">
-        {{ task.description }}
-      </p>
-
-      <!-- Details List -->
-      <div class="space-y-3 mb-6 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-sm">
-        <!-- Date -->
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-            <Calendar class="w-4 h-4" />
-            <span>Date</span>
-          </div>
-          <span class="font-medium text-slate-800 dark:text-slate-200">{{ formattedDate }}</span>
+        <!-- Description Notes -->
+        <div v-if="task.description" class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed">
+          {{ task.description }}
         </div>
 
-        <!-- Time -->
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-            <Clock class="w-4 h-4" />
-            <span>Time</span>
+        <!-- Details Box -->
+        <div class="space-y-2.5 bg-slate-50 dark:bg-slate-800/40 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs">
+          <!-- Date -->
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
+              <Calendar class="w-4 h-4 text-indigo-500" />
+              <span>Date</span>
+            </div>
+            <span class="font-semibold text-slate-800 dark:text-slate-200">{{ formattedDate }}</span>
           </div>
-          <span class="font-medium text-slate-800 dark:text-slate-200">
-            {{ task.is_all_day ? 'All Day' : (task.start_time ? `${task.start_time}${task.end_time ? ' - ' + task.end_time : ''}` : 'Any time') }}
-          </span>
-        </div>
 
-        <!-- Reminder -->
-        <div v-if="task.reminders && task.reminders.length > 0" class="flex items-center justify-between">
-          <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-            <Bell class="w-4 h-4 text-indigo-500" />
-            <span>Reminder</span>
+          <!-- Time -->
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
+              <Clock class="w-4 h-4 text-indigo-500" />
+              <span>Time</span>
+            </div>
+            <span class="font-semibold text-slate-800 dark:text-slate-200">
+              {{ task.is_all_day ? 'All Day' : (task.start_time ? `${task.start_time}${task.end_time ? ' - ' + task.end_time : ''}` : 'Any time') }}
+            </span>
           </div>
-          <span class="font-medium text-indigo-600 dark:text-indigo-400">
-            {{ task.reminders[0].minutes_before === 0 ? 'At start time' : `${task.reminders[0].minutes_before} minutes before` }}
-          </span>
+
+          <!-- Reminder -->
+          <div v-if="task.reminders && task.reminders.length > 0" class="flex items-center justify-between">
+            <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
+              <Bell class="w-4 h-4 text-indigo-500" />
+              <span>Reminder</span>
+            </div>
+            <span class="font-semibold text-indigo-600 dark:text-indigo-400">
+              {{ task.reminders[0].minutes_before === 0 ? 'At start time' : `${task.reminders[0].minutes_before}m before` }}
+            </span>
+          </div>
         </div>
       </div>
 
-      <!-- Action Buttons -->
-      <div class="grid grid-cols-3 gap-2 pt-2">
+      <!-- Pinned Action Buttons (Always Visible) -->
+      <div class="px-5 py-3 border-t border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md grid grid-cols-3 gap-2 shrink-0 rounded-b-3xl pb-[env(safe-area-inset-bottom,16px)]">
         <button
           @click="$emit('toggle', task.id)"
-          class="flex items-center justify-center gap-1.5 py-3 px-3 rounded-xl font-medium text-xs border transition-all active:scale-95"
+          class="flex items-center justify-center gap-1 py-2.5 px-2 rounded-xl font-bold text-xs border transition-all active:scale-95"
           :class="task.status === 'completed'
             ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200'
             : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200'"
         >
-          <CheckCircle2 class="w-4 h-4" />
+          <CheckCircle2 class="w-3.5 h-3.5" />
           <span>{{ task.status === 'completed' ? 'Uncheck' : 'Complete' }}</span>
         </button>
 
         <button
           @click="$emit('edit', task)"
-          class="flex items-center justify-center gap-1.5 py-3 px-3 rounded-xl font-medium text-xs bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 transition-all active:scale-95"
+          class="flex items-center justify-center gap-1 py-2.5 px-2 rounded-xl font-bold text-xs bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 transition-all active:scale-95"
         >
-          <Edit3 class="w-4 h-4" />
+          <Edit3 class="w-3.5 h-3.5" />
           <span>Edit</span>
         </button>
 
         <button
           @click="handleDelete"
-          class="flex items-center justify-center gap-1.5 py-3 px-3 rounded-xl font-medium text-xs bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition-all active:scale-95"
+          class="flex items-center justify-center gap-1 py-2.5 px-2 rounded-xl font-bold text-xs bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition-all active:scale-95"
         >
-          <Trash2 class="w-4 h-4" />
+          <Trash2 class="w-3.5 h-3.5" />
           <span>Delete</span>
         </button>
       </div>
