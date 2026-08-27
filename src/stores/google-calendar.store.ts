@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { googleCalendarService } from '@/services/google-calendar.service';
 import { taskRepository } from '@/db/task.repository';
+import { useTaskStore } from './task.store';
 import type { Task } from '@/types/task';
 import type {
   GoogleCalendarAccount,
@@ -128,7 +129,6 @@ export const useGoogleCalendarStore = defineStore('google-calendar', () => {
 
     try {
       const payload = googleCalendarService.taskToGoogleEventInput(task);
-      const { useTaskStore } = await import('./task.store');
       const taskStore = useTaskStore();
 
       if (task.external_event_id) {
