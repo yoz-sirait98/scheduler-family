@@ -386,7 +386,8 @@ export class GoogleCalendarService {
       };
     }
 
-    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
+    const targetCalendar = (calendarId && calendarId.trim() !== '') ? calendarId.trim() : 'primary';
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetCalendar)}/events`;
     const res = await fetch(url, {
       method: 'POST',
       headers: {
@@ -423,8 +424,9 @@ export class GoogleCalendarService {
       };
     }
 
+    const targetCalendar = (calendarId && calendarId.trim() !== '') ? calendarId.trim() : 'primary';
     const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
-      calendarId
+      targetCalendar
     )}/events/${encodeURIComponent(eventId)}`;
     const res = await fetch(url, {
       method: 'PUT',
@@ -598,47 +600,89 @@ export class GoogleCalendarService {
     let start: GoogleCalendarEvent['start'];
     let end: GoogleCalendarEvent['end'];
 
+    // Normalize date parts
+    const dateParts = task.task_date.split('-').map((n) => parseInt(n, 10));
+    const year = dateParts[0] || 2026;
+    const month = (dateParts[1] || 1) - 1;
+    const day = dateParts[2] || 1;
+
     if (task.is_all_day || !task.start_time) {
       const startDate = task.task_date;
-      const nextDateObj = new Date(startDate);
-      nextDateObj.setDate(nextDateObj.getDate() + 1);
-      const endDate = nextDateObj.toISOString().split('T')[0];
+      // Exact UTC next day to guarantee end.date > start.date regardless of local browser timezone
+      const nextDate = new Date(Date.UTC(year, month, day + 1));
+      const endDate = nextDate.toISOString().split('T')[0];
 
       start = { date: startDate };
       end = { date: endDate };
     } else {
-      const startDateTime = `${task.task_date}T${task.start_time}:00${DEFAULT_TIMEZONE_OFFSET}`;
-      let endDateTime: string;
+      // Clean and sanitize start time (HH:MM or HH:MM:SS)
+      const rawStartParts = task.start_time.trim().split(':');
+      const startH = parseInt(rawStartParts[0] || '0', 10);
+      const startM = parseInt(rawStartParts[1] || '0', 10);
 
-      if (task.end_time) {
-        endDateTime = `${task.task_date}T${task.end_time}:00${DEFAULT_TIMEZONE_OFFSET}`;
+      const formattedStartH = String(startH).padStart(2, '0');
+      const formattedStartM = String(startM).padStart(2, '0');
+      const startDateTime = `${task.task_date}T${formattedStartH}:${formattedStartM}:00${DEFAULT_TIMEZONE_OFFSET}`;
+
+      // Calculate end time
+      let endYear = year;
+      let endMonth = month;
+      let endDay = day;
+      let endH: number;
+      let endM: number;
+
+      if (task.end_time && task.end_time.trim()) {
+        const rawEndParts = task.end_time.trim().split(':');
+        endH = parseInt(rawEndParts[0] || '0', 10);
+        endM = parseInt(rawEndParts[1] || '0', 10);
+
+        // If end_time is less than or equal to start_time, assume +1 hour
+        if (endH < startH || (endH === startH && endM <= startM)) {
+          endH = startH + 1;
+          endM = startM;
+          if (endH >= 24) {
+            endH = endH % 24;
+            endDay += 1;
+          }
+        }
       } else {
-        const startParts = task.start_time.split(':');
-        const endHourNum = (parseInt(startParts[0], 10) + 1) % 24;
-        const endH = String(endHourNum).padStart(2, '0');
-        endDateTime = `${task.task_date}T${endH}:${startParts[1] || '00'}:00${DEFAULT_TIMEZONE_OFFSET}`;
+        // Default duration: 1 hour
+        endH = startH + 1;
+        endM = startM;
+        if (endH >= 24) {
+          endH = endH % 24;
+          endDay += 1;
+        }
       }
+
+      const endDateObj = new Date(Date.UTC(endYear, endMonth, endDay));
+      const endDateStr = endDateObj.toISOString().split('T')[0];
+      const formattedEndH = String(endH).padStart(2, '0');
+      const formattedEndM = String(endM).padStart(2, '0');
+      const endDateTime = `${endDateStr}T${formattedEndH}:${formattedEndM}:00${DEFAULT_TIMEZONE_OFFSET}`;
 
       start = { dateTime: startDateTime, timeZone: DEFAULT_TIMEZONE };
       end = { dateTime: endDateTime, timeZone: DEFAULT_TIMEZONE };
     }
 
-    const remindersOverride = task.reminders && task.reminders.length > 0
-      ? {
-          useDefault: false,
-          overrides: task.reminders.map((r) => ({
-            method: 'popup' as const,
-            minutes: r.minutes_before,
-          })),
-        }
+    // Reminders validation (filter out negative or invalid values)
+    const validOverrides = (task.reminders || [])
+      .filter((r) => typeof r.minutes_before === 'number' && r.minutes_before >= 0)
+      .map((r) => ({
+        method: 'popup' as const,
+        minutes: Math.min(r.minutes_before, 40320),
+      }));
+
+    const reminders = validOverrides.length > 0
+      ? { useDefault: false, overrides: validOverrides }
       : { useDefault: true };
 
     return {
-      summary: task.title,
-      description: task.description || undefined,
+      summary: task.title.trim(),
+      description: task.description?.trim() || undefined,
       start,
       end,
-      reminders: remindersOverride,
+      reminders,
     };
   }
 
