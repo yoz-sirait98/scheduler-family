@@ -128,6 +128,9 @@ export const useGoogleCalendarStore = defineStore('google-calendar', () => {
 
     try {
       const payload = googleCalendarService.taskToGoogleEventInput(task);
+      const { useTaskStore } = await import('./task.store');
+      const taskStore = useTaskStore();
+
       if (task.external_event_id) {
         await googleCalendarService.updateEvent(
           account.value.accessToken,
@@ -135,22 +138,30 @@ export const useGoogleCalendarStore = defineStore('google-calendar', () => {
           task.external_event_id,
           payload
         );
-        await taskRepository.update(task.id, {
+        const updated = await taskRepository.update(task.id, {
           external_synced_at: new Date().toISOString(),
         });
+        if (updated) {
+          const idx = taskStore.tasks.findIndex((t) => t.id === task.id);
+          if (idx !== -1) taskStore.tasks[idx] = updated;
+        }
       } else {
         const created = await googleCalendarService.createEvent(
           account.value.accessToken,
           selectedCalendarId.value,
           payload
         );
-        await taskRepository.update(task.id, {
+        const updated = await taskRepository.update(task.id, {
           external_provider: 'google',
           external_calendar_id: selectedCalendarId.value,
           external_event_id: created.id,
           external_event_link: created.htmlLink || null,
           external_synced_at: new Date().toISOString(),
         });
+        if (updated) {
+          const idx = taskStore.tasks.findIndex((t) => t.id === task.id);
+          if (idx !== -1) taskStore.tasks[idx] = updated;
+        }
       }
       return true;
     } catch (err: any) {

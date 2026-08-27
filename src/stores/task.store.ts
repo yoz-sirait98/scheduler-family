@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { taskRepository } from '@/db/task.repository';
 import { syncService } from '@/services/sync.service';
 import { supabase, isSupabaseConfigured } from '@/services/supabase.service';
+import { googleCalendarService } from '@/services/google-calendar.service';
 import { useAuthStore } from './auth.store';
 import { getTodayDateString, getCurrentTimeString, isTaskOverdue } from '@/utils/date';
 import type { Task, TaskCreateInput, TaskUpdateInput, TaskFilterType, TaskSortOption } from '@/types/task';
@@ -112,8 +113,37 @@ export const useTaskStore = defineStore('tasks', () => {
 
   async function addTask(input: TaskCreateInput): Promise<Task> {
     const activeUserId = authStore.user?.id || authStore.currentUserId;
-    const task = await taskRepository.create(input, activeUserId);
+    let task = await taskRepository.create(input, activeUserId);
     tasks.value.push(task);
+
+    // Immediate Google Calendar push if external_provider is 'google' and account is connected
+    if (task.external_provider === 'google') {
+      const account = googleCalendarService.getSavedAccount();
+      if (account && googleCalendarService.isTokenValid(account)) {
+        try {
+          const calId = task.external_calendar_id || googleCalendarService.getSelectedCalendarId();
+          const eventPayload = googleCalendarService.taskToGoogleEventInput(task);
+          const createdGoogleEvent = await googleCalendarService.createEvent(account.accessToken, calId, eventPayload);
+
+          const updated = await taskRepository.update(task.id, {
+            external_provider: 'google',
+            external_calendar_id: calId,
+            external_event_id: createdGoogleEvent.id,
+            external_event_link: createdGoogleEvent.htmlLink || null,
+            external_synced_at: new Date().toISOString(),
+          });
+          if (updated) {
+            task = updated;
+            const idx = tasks.value.findIndex((t) => t.id === task.id);
+            if (idx !== -1) {
+              tasks.value[idx] = updated;
+            }
+          }
+        } catch (err: any) {
+          console.warn('Immediate Google Calendar task export failed:', err);
+        }
+      }
+    }
 
     // Direct Supabase upsert if authenticated and online
     if (authStore.user?.id && isSupabaseConfigured && supabase && navigator.onLine) {
@@ -156,11 +186,48 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   async function updateTask(id: string, updates: TaskUpdateInput): Promise<void> {
-    const updated = await taskRepository.update(id, updates);
+    let updated = await taskRepository.update(id, updates);
     if (updated) {
       const idx = tasks.value.findIndex((t) => t.id === id);
       if (idx !== -1) {
         tasks.value[idx] = updated;
+      }
+
+      // Immediate Google Calendar push/update
+      if (updated.external_provider === 'google') {
+        const account = googleCalendarService.getSavedAccount();
+        if (account && googleCalendarService.isTokenValid(account)) {
+          try {
+            const calId = updated.external_calendar_id || googleCalendarService.getSelectedCalendarId();
+            const eventPayload = googleCalendarService.taskToGoogleEventInput(updated);
+            if (updated.external_event_id) {
+              await googleCalendarService.updateEvent(
+                account.accessToken,
+                calId,
+                updated.external_event_id,
+                eventPayload
+              );
+              await taskRepository.update(id, { external_synced_at: new Date().toISOString() });
+            } else {
+              const createdGoogleEvent = await googleCalendarService.createEvent(
+                account.accessToken,
+                calId,
+                eventPayload
+              );
+              const synced = await taskRepository.update(id, {
+                external_event_id: createdGoogleEvent.id,
+                external_event_link: createdGoogleEvent.htmlLink || null,
+                external_synced_at: new Date().toISOString(),
+              });
+              if (synced) {
+                updated = synced;
+                if (idx !== -1) tasks.value[idx] = synced;
+              }
+            }
+          } catch (err: any) {
+            console.warn('Immediate Google Calendar task update failed:', err);
+          }
+        }
       }
 
       if (authStore.user?.id && isSupabaseConfigured && supabase && navigator.onLine) {
@@ -229,6 +296,19 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   async function deleteTask(id: string): Promise<void> {
+    const existing = tasks.value.find((t) => t.id === id);
+    if (existing?.external_event_id && existing.external_provider === 'google') {
+      const account = googleCalendarService.getSavedAccount();
+      if (account && googleCalendarService.isTokenValid(account)) {
+        try {
+          const calId = existing.external_calendar_id || googleCalendarService.getSelectedCalendarId();
+          await googleCalendarService.deleteEvent(account.accessToken, calId, existing.external_event_id);
+        } catch (err: any) {
+          console.warn('Immediate Google Calendar task deletion failed:', err);
+        }
+      }
+    }
+
     await taskRepository.delete(id);
     tasks.value = tasks.value.filter((t) => t.id !== id);
 
