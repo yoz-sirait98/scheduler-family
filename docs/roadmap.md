@@ -9,10 +9,12 @@
 - [x] Reminders & Alarm system with Web Audio API chime synthesis, Web Notifications, Stop and 5m/10m Snooze.
 - [x] PWA manifest, service worker caching, and GitHub Pages deployment workflow.
 
-## Phase 2: Google Calendar Integration (Completed)
+## Completed in Phase 2: Google Calendar Integration
 - [x] Connect Google Calendar via OAuth2 (Google Identity Services GIS token flow with custom Client ID & Demo Simulator).
-- [x] Two-way event synchronization with Last-Write-Wins (LWW) conflict resolution between Dexie/Supabase and Google Calendar.
-- [x] Direct export of YJS tasks to Google Calendar (1-click web render URL, Google Calendar REST API, and RFC-5545 `.ics` export).
+- [x] Two-way event synchronization with Last-Write-Wins (LWW) conflict resolution and bidirectional deletion synchronization.
+- [x] Instant direct export and automatic sync on task create/update/delete.
+- [x] Universal calendar export options (1-click web render template URL & RFC-5545 `.ics` download).
+- [x] Full UI integration across Settings, Task Details, Task Cards, and Calendar views (Day, Week, Month, Agenda).
 
 ## Phase 3: Advanced Recurrence & Web Push
 - [ ] Complex recurrence rules (e.g. "every 2nd Tuesday of the month", "every weekday").
