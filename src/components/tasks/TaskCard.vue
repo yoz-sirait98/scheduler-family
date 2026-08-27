@@ -113,6 +113,7 @@ import { computed } from 'vue';
 import { Check, Clock, Bell, CalendarSync } from 'lucide-vue-next';
 import CategoryIcon from '@/components/common/CategoryIcon.vue';
 import { formatTimeString, formatDateShort, isDateToday, isTaskOverdue } from '@/utils/date';
+import { capacitorService } from '@/services/capacitor.service';
 import type { Task } from '@/types/task';
 
 const props = defineProps<{
@@ -129,6 +130,7 @@ const formattedDate = computed(() => formatDateShort(props.task.task_date));
 const isOverdue = computed(() => isTaskOverdue(props.task.task_date, props.task.start_time, props.task.status === 'completed'));
 
 function handleToggle() {
+  capacitorService.triggerHaptic(props.task.status === 'completed' ? 'selection' : 'success');
   emit('toggle', props.task.id);
 }
 </script>

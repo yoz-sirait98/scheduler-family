@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">YJS Scheduler</string>
+    <string name="title_activity_main">YJS Scheduler</string>
+    <string name="package_name">id.web.yjsfinance.scheduler</string>
+    <string name="custom_url_scheme">id.web.yjsfinance.scheduler</string>
+</resources>

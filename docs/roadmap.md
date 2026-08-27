@@ -25,10 +25,15 @@
 - [ ] Natural language task input parser (e.g. *"Doctor appointment tomorrow at 10 AM with reminder 15m"*).
 - [ ] Smart conflict detection.
 
-## Phase 5: Capacitor Native Mobile Wrapper
-- [ ] Wrap Vue PWA in Capacitor.
-- [ ] Native Android `AlarmManager` exact alarms.
-- [ ] Native iOS `UNUserNotificationCenter` alarms.
+## Completed in Phase 5: Capacitor Native Mobile Wrapper
+- [x] Wrap Vue PWA in Capacitor (`@capacitor/core`, `@capacitor/android`, `@capacitor/ios`).
+- [x] Native Android `AlarmManager` exact alarms with `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `POST_NOTIFICATIONS`, and urgent notification channels.
+- [x] Native iOS `UNUserNotificationCenter` exact alarm triggers and action categories.
+- [x] Interactive Lock Screen & Notification drawer action buttons: Stop Alarm, Snooze 5 Min, Snooze 10 Min.
+- [x] Native hardware back button handling on Android (modal & sheet dismiss stack).
+- [x] Tactile haptic feedback (`@capacitor/haptics`) for task completion, priority selections, and alarm triggers.
+- [x] Theme Status Bar synchronization (`@capacitor/status-bar`) for seamless dark & light modes.
+- [x] Native device diagnostics, exact alarm testing (5s trigger), and Android Doze battery optimization guide in Settings.
 
 ## Phase 6: Multi-User Family Collaboration
 - [ ] Shared family lists & task assignment among family members.

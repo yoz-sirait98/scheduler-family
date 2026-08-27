@@ -53,7 +53,91 @@
       </div>
     </div>
 
-    <!-- 2. Notification & Alarm Preferences -->
+    <!-- 2. Capacitor Native Mobile & Exact Alarms (Phase 5) -->
+    <div class="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
+            <Cpu class="w-4 h-4" />
+          </div>
+          <div>
+            <h3 class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>Native Mobile & Exact Alarms</span>
+              <span
+                class="px-2 py-0.2 rounded-full text-[9px] font-extrabold uppercase tracking-wider"
+                :class="isNative ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'"
+              >
+                {{ isNative ? (platform === 'android' ? 'Android Native' : 'iOS Native') : 'Web / PWA Mode' }}
+              </span>
+            </h3>
+            <p class="text-[11px] text-slate-500">
+              {{ isNative ? 'Android AlarmManager / iOS UNUserNotificationCenter exact hardware wake alarms' : 'Capacitor native wrapper support with exact hardware alarms' }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-2 pt-1">
+        <!-- Native Platform Info -->
+        <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
+              Execution Runtime:
+            </span>
+            <span class="text-xs font-mono font-bold text-purple-600 dark:text-purple-400">
+              {{ isNative ? `@capacitor/${platform}` : 'Web Browser Engine' }}
+            </span>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
+              Alarm Engine:
+            </span>
+            <span class="text-xs text-slate-600 dark:text-slate-300">
+              {{ isNative ? (platform === 'android' ? 'AlarmManager.setExactAndAllowWhileIdle' : 'UNCalendarNotificationTrigger') : 'Web Audio API + Service Worker' }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Exact Alarm Test & Haptics Actions -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+          <button
+            @click="handleTestExactAlarm"
+            :disabled="testingExactAlarm"
+            class="py-2.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5"
+          >
+            <AlarmClock class="w-3.5 h-3.5" :class="{ 'animate-bounce': testingExactAlarm }" />
+            <span>{{ testingExactAlarm ? 'Alarm Set for 5s...' : 'Test Exact Alarm (5s)' }}</span>
+          </button>
+
+          <button
+            @click="handleTestHaptic"
+            class="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs border border-slate-200 dark:border-slate-700 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+          >
+            <Vibrate class="w-3.5 h-3.5 text-purple-500" />
+            <span>Test Tactile Haptic</span>
+          </button>
+        </div>
+
+        <!-- Exact Alarm Test Confirmation Alert -->
+        <div v-if="testAlarmMessage" class="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-[11px] text-purple-700 dark:text-purple-300">
+          {{ testAlarmMessage }}
+        </div>
+
+        <!-- Android Battery Optimization Note -->
+        <div class="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
+          <div class="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+            <ShieldCheck class="w-3.5 h-3.5 text-emerald-500" />
+            <span>Reliable Background Alarms Guide:</span>
+          </div>
+          <p class="leading-relaxed">
+            For 100% reliable alarms on Android devices during Doze mode, ensure YJS Scheduler is set to <strong>"Unrestricted"</strong> under <em>Settings &gt; Apps &gt; YJS Scheduler &gt; Battery &gt; Unrestricted</em>.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Notification & Alarm Preferences -->
     <div class="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-2xs space-y-3">
       <div class="flex items-center gap-2.5">
         <div class="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
@@ -466,7 +550,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { Smartphone, Bell, Volume2, Cloud, User, RefreshCw, Calendar, X } from 'lucide-vue-next';
+import { Smartphone, Bell, Volume2, Cloud, User, RefreshCw, Calendar, X, Cpu, AlarmClock, Vibrate, ShieldCheck } from 'lucide-vue-next';
 import { useSettingsStore } from '@/stores/settings.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useTaskStore } from '@/stores/task.store';
@@ -474,6 +558,8 @@ import { useGoogleCalendarStore } from '@/stores/google-calendar.store';
 import { usePwaInstall } from '@/composables/usePwaInstall';
 import { audioService } from '@/services/audio.service';
 import { notificationService } from '@/services/notification.service';
+import { capacitorService } from '@/services/capacitor.service';
+import { nativeAlarmService } from '@/services/native-alarm.service';
 import { isSupabaseConfigured } from '@/services/supabase.service';
 import { formatDateLong } from '@/utils/date';
 
@@ -487,6 +573,49 @@ const syncing = ref(false);
 const isGoogleConnecting = ref(false);
 const showClientIdModal = ref(false);
 const tempClientId = ref(googleStore.clientId);
+
+const isNative = capacitorService.isNative;
+const platform = capacitorService.platform;
+const testingExactAlarm = ref(false);
+const testAlarmMessage = ref('');
+
+async function handleTestExactAlarm() {
+  testingExactAlarm.value = true;
+  testAlarmMessage.value = '';
+
+  if (isNative) {
+    const ok = await nativeAlarmService.testExactAlarm(5);
+    if (ok) {
+      testAlarmMessage.value = '✓ Exact native hardware alarm scheduled for 5 seconds from now. You can background the app to test.';
+    } else {
+      testAlarmMessage.value = '⚠ Could not schedule exact alarm. Please ensure permissions are granted.';
+    }
+  } else {
+    // Web simulation
+    testAlarmMessage.value = '✓ Web alarm test scheduled in 5 seconds!';
+    setTimeout(() => {
+      audioService.playConfirmSound();
+      notificationService.showNotification('⏰ Exact Alarm Test (Web)', {
+        body: 'YJS Scheduler simulated exact alarm fired successfully!',
+      });
+      testAlarmMessage.value = '✓ Web alarm triggered!';
+    }, 5000);
+  }
+
+  setTimeout(() => {
+    testingExactAlarm.value = false;
+  }, 5000);
+}
+
+async function handleTestHaptic() {
+  await capacitorService.triggerHaptic('heavy');
+  testAlarmMessage.value = '✓ Tactile haptic vibration triggered!';
+  setTimeout(() => {
+    if (testAlarmMessage.value === '✓ Tactile haptic vibration triggered!') {
+      testAlarmMessage.value = '';
+    }
+  }, 3000);
+}
 
 function testSound() {
   audioService.playConfirmSound();

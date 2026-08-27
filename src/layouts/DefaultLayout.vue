@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import Navbar from '@/components/common/Navbar.vue';
 import Sidebar from '@/components/common/Sidebar.vue';
 import BottomNav from '@/components/common/BottomNav.vue';
@@ -56,6 +56,7 @@ import { useTaskStore } from '@/stores/task.store';
 import { useCategoryStore } from '@/stores/category.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import { reminderService } from '@/services/reminder.service';
+import { capacitorService } from '@/services/capacitor.service';
 import type { Task, TaskCreateInput } from '@/types/task';
 
 const taskStore = useTaskStore();
@@ -67,11 +68,30 @@ const editingTask = ref<Task | null>(null);
 const defaultDate = ref<string | undefined>(undefined);
 const defaultTime = ref<string | undefined>(undefined);
 
+let unregisterBackButton: (() => void) | null = null;
+
 onMounted(async () => {
   settingsStore.initTheme();
+  await capacitorService.init();
   await categoryStore.loadCategories();
   await taskStore.loadTasks();
   reminderService.start();
+
+  // Handle hardware back button to close task form if open
+  unregisterBackButton = capacitorService.registerBackButtonHandler(() => {
+    if (isTaskModalOpen.value) {
+      closeTaskForm();
+      return true;
+    }
+    return false;
+  });
+});
+
+onUnmounted(() => {
+  if (unregisterBackButton) {
+    unregisterBackButton();
+    unregisterBackButton = null;
+  }
 });
 
 function openTaskForm(options?: { task?: Task; date?: string; time?: string }) {

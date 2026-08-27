@@ -4,6 +4,8 @@ import { taskRepository } from '@/db/task.repository';
 import { syncService } from '@/services/sync.service';
 import { supabase, isSupabaseConfigured } from '@/services/supabase.service';
 import { googleCalendarService } from '@/services/google-calendar.service';
+import { nativeAlarmService } from '@/services/native-alarm.service';
+import { capacitorService } from '@/services/capacitor.service';
 import { useAuthStore } from './auth.store';
 import { getTodayDateString, getCurrentTimeString, isTaskOverdue } from '@/utils/date';
 import type { Task, TaskCreateInput, TaskUpdateInput, TaskFilterType, TaskSortOption } from '@/types/task';
@@ -182,6 +184,12 @@ export const useTaskStore = defineStore('tasks', () => {
       await syncService.enqueue('tasks', 'create', task.id, task);
     }
 
+    // Schedule native exact alarms if reminders exist
+    if (task.reminders && task.reminders.length > 0) {
+      await nativeAlarmService.scheduleTaskReminders(task, task.reminders);
+    }
+    await capacitorService.triggerHaptic('success');
+
     return task;
   }
 
@@ -192,6 +200,14 @@ export const useTaskStore = defineStore('tasks', () => {
       if (idx !== -1) {
         tasks.value[idx] = updated;
       }
+
+      // Re-schedule native exact alarms
+      if (updated.reminders && updated.reminders.length > 0) {
+        await nativeAlarmService.scheduleTaskReminders(updated, updated.reminders);
+      } else {
+        await nativeAlarmService.cancelTaskReminders(id);
+      }
+      await capacitorService.triggerHaptic('medium');
 
       // Immediate Google Calendar push/update
       if (updated.external_provider === 'google') {
@@ -275,6 +291,16 @@ export const useTaskStore = defineStore('tasks', () => {
         tasks.value[idx] = updated;
       }
 
+      if (updated.status === 'completed') {
+        await nativeAlarmService.cancelTaskReminders(id);
+        await capacitorService.triggerHaptic('success');
+      } else {
+        if (updated.reminders && updated.reminders.length > 0) {
+          await nativeAlarmService.scheduleTaskReminders(updated, updated.reminders);
+        }
+        await capacitorService.triggerHaptic('selection');
+      }
+
       if (authStore.user?.id && isSupabaseConfigured && supabase && navigator.onLine) {
         try {
           const { error } = await supabase.from('tasks').update({
@@ -296,6 +322,10 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   async function deleteTask(id: string): Promise<void> {
+    // Cancel native alarms for deleted task
+    await nativeAlarmService.cancelTaskReminders(id);
+    await capacitorService.triggerHaptic('light');
+
     const existing = tasks.value.find((t) => t.id === id);
     if (existing?.external_event_id && existing.external_provider === 'google') {
       const account = googleCalendarService.getSavedAccount();

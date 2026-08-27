@@ -1,6 +1,8 @@
 import { reminderRepository } from '@/db/reminder.repository';
 import { taskRepository } from '@/db/task.repository';
 import { notificationService } from './notification.service';
+import { nativeAlarmService } from './native-alarm.service';
+import { capacitorService } from './capacitor.service';
 import { calculateReminderTriggerTime } from '@/utils/date';
 import type { Task, TaskReminder } from '@/types/task';
 import type { ActiveAlarm } from '@/types/notification';
@@ -11,6 +13,7 @@ class ReminderService {
   private timer: any = null;
   private alarmCallbacks: Set<AlarmTriggerCallback> = new Set();
   private snoozedAlarms: Map<string, { task: Task; reminder: TaskReminder; triggerTime: Date }> = new Map();
+  private cleanupAppState: (() => void) | null = null;
 
   /**
    * Start checking for due reminders every 15 seconds
@@ -19,12 +22,27 @@ class ReminderService {
     if (this.timer) return;
     this.checkReminders();
     this.timer = setInterval(() => this.checkReminders(), 15000);
+
+    // Synchronize native exact alarms and listen for app resume
+    if (capacitorService.isNative) {
+      nativeAlarmService.rescheduleAllActiveReminders();
+      this.cleanupAppState = capacitorService.onAppStateChange((isActive) => {
+        if (isActive) {
+          this.checkReminders();
+          nativeAlarmService.rescheduleAllActiveReminders();
+        }
+      });
+    }
   }
 
   stop(): void {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
+    }
+    if (this.cleanupAppState) {
+      this.cleanupAppState();
+      this.cleanupAppState = null;
     }
   }
 
@@ -89,7 +107,12 @@ class ReminderService {
       data: { taskId: task.id },
     });
 
-    // 2. Notify subscribers (Alarm Modal)
+    // 2. Trigger native haptics if on mobile
+    if (capacitorService.isNative) {
+      capacitorService.triggerHaptic('heavy');
+    }
+
+    // 3. Notify subscribers (Alarm Modal)
     const activeAlarm: ActiveAlarm = {
       id: `${reminder.id}-${Date.now()}`,
       task,
